@@ -66,6 +66,7 @@ void menuChoiceQuit()
 
 void menuChoiceReset()
 {
+    ull::reset();
 }
 
 /* ******************************************** */
@@ -90,6 +91,10 @@ void menuChoiceInsert()
 
 void menuChoiceQuery()
 {
+    uint32_t nmec;
+    printf("Enter nMec: ");
+	scanf("%u", &nmec);
+    std::cout << ull::query(nmec) << "\n";    //const char *query(uint32_t nmec)
 }
 
 /* ******************************************** */
@@ -113,6 +118,12 @@ void menuChoicePrint()
 
 void menuChoiceLoad()
 {
+    printf("Enter file name: ");
+    char *name = NULL;
+    size_t n = 0;
+    getline(&name, &n, stdin);
+    std::cerr << name;
+    ull::load("list.txt");
 }
 
 /* ******************************************** */

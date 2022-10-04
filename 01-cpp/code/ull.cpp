@@ -39,12 +39,32 @@ namespace ull
 
     void reset()
     {
+        head = NULL;
     }
 
     /* ************************************************* */
 
-    void load(const char *fname)
+    void load(const char *fname) //NOT WORKING
     {
+        FILE *file;
+        file = fopen(fname,"r");
+        if(file != NULL) {
+            char *name = NULL;
+            size_t n = 0;
+            uint32_t nmec;
+            char ch;
+            char *line = NULL;
+            //getline(&name, &n, file);
+            //fcanf(file, "%u", &nmec);
+            while ((ch = fgetc(file)) != EOF) {
+                getline(&line, &n, file);
+                std::cerr << ch << line;
+            }
+        }
+        else {
+            std::cerr << "couldn't open file\n";
+        }
+        fclose(file);
     }
 
     /* ************************************************* */
@@ -79,8 +99,8 @@ namespace ull
         Node *p1 = new Node();
         Node *p2 = new Node();
         
-        std::cerr << "\t" << p->reg.nmec;
-        std::cerr << "\t" << p->reg.name << '\n';
+        //std::cerr << "\t" << p->reg.nmec;
+        //std::cerr << "\t" << p->reg.name << '\n';
 
         for(p1 = NULL, p2 = head; p2 != NULL; p1 = p2, p2 = p2->next) {    //debug
             //std::cerr << "p1: " << p1 << "\tp2: " << p2 << "\tp: " << p << "\n";
@@ -111,6 +131,12 @@ namespace ull
 
     const char *query(uint32_t nmec)
     {
+        Node *p = new Node();
+        for (p = head; p != NULL; p = p->next) {
+            if(p->reg.nmec == nmec) {
+                return p->reg.name;
+            }
+        }
         return NULL;
     }
 

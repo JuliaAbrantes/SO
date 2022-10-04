@@ -84,26 +84,6 @@ void menuChoiceInsert()
 
     ull::insert(nmec, name); //uint32_t nmec, const char *name
     
-    //cout << "Student: " << nmec << " " << name << " has been added to the list.";
-    
-    //gcc main.cpp ull.cpp
-    //./a.out
-/*
-    uint32_t nmec;
-    string nmecStr;
-    cout << "Nmec: ";
-    getline(cin, nmecStr);
-    nmec = atoi(nmecStr.c_str());
-
-    string name;
-    const char *namePointer;
-    cout << "Name: ";
-    getline(cin, name);
-    namePointer = name.c_str();
-    */
-    //uint32_t nmec = 1234;
-    //string name = "Julia";
-    /**/
 }
 
 /* ******************************************** */
@@ -116,12 +96,17 @@ void menuChoiceQuery()
 
 void menuChoiceRemove()
 {
+    uint32_t nmec;
+    printf("Enter nMec: ");
+	scanf("%u", &nmec);
+    ull::remove(nmec);
 }
 
 /* ******************************************** */
 
 void menuChoicePrint()
 {
+    ull::print();
 }
 
 /* ******************************************** */

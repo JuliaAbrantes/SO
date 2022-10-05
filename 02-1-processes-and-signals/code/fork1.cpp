@@ -15,8 +15,8 @@ int main(void)
   
   printf("After the fork:\n");
   printf("  PID = %d, PPID = %d\n",getpid(), getppid());
-  bwRandomDelay(0, 0);
-  printf("  Was I printed by the parent or by the child process? How can I know it?\n"); 
+  bwRandomDelay(0, 2000);
+  printf("  Was I printed by the parent or by the child process? How can I know it? my id is: %d\n", getpid()); 
   
   return EXIT_SUCCESS;
 }

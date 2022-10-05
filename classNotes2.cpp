@@ -38,3 +38,12 @@ down(fifo->semid, ACCESS)
 }
 down(fifo->semid, ACCESS)
 down(fifo->semid, NITENS)
+
+//MECANISMO DE EXCLUSÃO MÚTUA
+//quando o produtor vai buscar a informação, tem o mesmo id de quando pôs lá
+//id: dois dígitos menos significativos
+if((value % 100) != pid)// deveria dar o id
+
+//Está tudo a correr ao mesmo tempo
+//variável que é acedida dentro do fifo (fifo->ii), por estar em memória partilhada,
+//é manipulada por vários processos diferentes 

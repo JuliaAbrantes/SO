@@ -13,7 +13,7 @@ int main(void)
   printf("Before the fork: PID = %d, PPID = %d\n", getpid(), getppid());
 
   pid_t ret = pfork();
-  if (ret == 0)
+  if (ret == 0) //if child
   {
     execl("./child", "./child", NULL);
     printf("why doesn't this message show up?\n");
@@ -23,7 +23,7 @@ int main(void)
   {
     printf("I'm the parent: PID = %d, PPID = %d\n", getpid(), getppid());
     usleep(20000);
-    // pwait(NULL);
+    pwait(NULL);
   }
 
   return EXIT_SUCCESS;

@@ -9,7 +9,7 @@
 
 static void Interrupt (int signum)
 {
-    if (signum == SIGINT) {
+    if (signum == SIGINT || signum == SIGTERM) {
         printf("\nStay calm, I haven't reached %u yet!\n", NTIMES);
     }
     else { 
@@ -30,6 +30,11 @@ int main(void)
         perror ("Rotina de atendimento não instalada\n");
         return EXIT_FAILURE;
     }
+    if (sigaction (SIGTERM, &sigact, NULL) < 0)
+    { 
+        perror ("Rotina de atendimento não instalada\n");
+        return EXIT_FAILURE;
+    }
 
     /* counting */
     printf("PID = %u\n", getpid());
@@ -40,7 +45,6 @@ int main(void)
         usleep(500000);
     }
     printf ("\n");
-
     return EXIT_SUCCESS;
 }
 

@@ -1,0 +1,39 @@
+/* Insertion of a pair <id, value> into the FIFO  */
+    void in(uint32_t id, uint32_t value)
+    {
+        /* decrement emptiness, blocking if necessary, and lock access */
+        down(fifo->semid, ACCESS);
+
+        /* Insert pair */
+        fifo->slot[fifo->ii].value = value;
+        gaussianDelay(0.1, 0.5);
+        fifo->slot[fifo->ii].id = id;
+        fifo->ii = (fifo->ii + 1) % FIFOSZ;
+        fifo->cnt++;
+
+        /* unlock access and increment fullness */
+        up(fifo->semid, ACCESS);
+        up(fifo->semid, NITEMS);
+    }
+
+    /* ************************************************* */
+
+    /* Retrieval of a pair <id, value> from the FIFO */
+
+    void out (uint32_t * idp, uint32_t * valuep)
+    {
+        /* decrement fullness, blocking if necessary, and lock access */
+        down(fifo->semid, NITEMS);
+        down(fifo->semid, ACCESS);
+
+        /* Retrieve pair */
+        *valuep = fifo->slot[fifo->ri].value;
+        fifo->slot[fifo->ri].value = 99999;
+        *idp = fifo->slot[fifo->ri].id;
+        fifo->slot[fifo->ri].id = 99;
+        fifo->ri = (fifo->ri + 1) % FIFOSZ;
+        fifo->cnt--;
+
+        /* unlock access and increment fullness */
+        up(fifo->semid, ACCESS);
+    }

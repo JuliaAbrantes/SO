@@ -18,7 +18,7 @@
 #include  <math.h>
 #include <stdint.h>
 
-#include  "fifo.h"
+#include  "app.cpp"
 #include  "delays.h"
 #include  "process.h"
 
@@ -51,11 +51,11 @@ int producer(uint32_t id, uint32_t niter)
         uint32_t myBufferId;
         app::fifoBuffersOut(&myBufferId);
 
-        char[] value = ['j', 'u', 'l', 'i', '4'];
+        char value[5] = {'j', 'u', 'l', 'i', '4'};
         /* puts value in the buffer */
         app::putRequestPool(myBufferId, value);
         
-        /* create request to process*/
+        /* create request */
         app::fifoRequestsIn(myBufferId);
 
         /* wait response */

@@ -1,6 +1,15 @@
 /*
-    My application implementation
-*/
+ *  @brief A simple FIFO, whose elements are pairs of integers,
+ *      one being the id of the producer and the other the value produced
+ *
+ * @remarks safe, non busy waiting version
+ *
+ *  The following operations are defined:
+ *     \li insertion of a value
+ *     \li retrieval of a value.
+ *
+ * \author (2016-2022) Artur Pereira <artur at ua.pt>
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,17 +24,28 @@
 #include "delays.h"
 #include "process.h"
 
+namespace app
+{
+    /** \brief internal storage size of <em>FIFO memory</em> */
+    #define  FIFOSZ         5
 
-namespace memoryHandler {
+    /*
+     *  \brief Type of the shared data structure.
+     */
+    struct ITEM
+    {
+        uint32_t id;     ///< id of the producer
+        uint32_t value;  ///< value stored
+    };
 
     /* when using shared memory, the size of the data structure must be fixed */
     struct FIFO
-    { 
+    {
         int semid;          ///< syncronization semaphore array
         uint32_t ii;        ///< point of insertion
         uint32_t ri;        ///< point of retrieval
         uint32_t cnt;       ///< number of items stored
-        ITEM slot[FIFOSZ];  ///< storage memory
+        uint32_t slot[FIFOSZ];  ///< storage memory
     };
 
     int fifoId = -1;
@@ -53,9 +73,10 @@ namespace memoryHandler {
         struct sembuf op = {index, 1, 0};
         psemop(semid, &op, 1);
     }
-    
+
+
     /* ************************************************* */
-    
+
     /* create a FIFO in shared memory, initialize it, and return its id */
     void create(void)
     {
@@ -97,34 +118,50 @@ namespace memoryHandler {
         pshmctl(fifoId, IPC_RMID, NULL);
     }
 
+    /* ************************************************* */
 
-    /* take a buffer out of fifo of free buffers */
-    void getFreeBuffer () {
+    /* Insertion of a pair <id, value> into the FIFO  */
+    void in(uint32_t id, uint32_t value)
+    {
+        /* decrement emptiness, blocking if necessary, and lock access */
+        down(fifo->semid, NSLOTS);
+        down(fifo->semid, ACCESS);
 
+        /* Insert pair */
+        fifo->slot[fifo->ii].value = value;
+        gaussianDelay(0.1, 0.5);
+        fifo->slot[fifo->ii].id = id;
+        fifo->ii = (fifo->ii + 1) % FIFOSZ;
+        fifo->cnt++;
+
+        /* unlock access and increment fullness */
+        up(fifo->semid, ACCESS);
+        up(fifo->semid, NITEMS);
     }
 
-    /* put request data on buffer */
-    struct* void putRequestData (struct& data , int id) {
+    /* ************************************************* */
 
-    }          
+    /* Retrieval of a pair <id, value> from the FIFO */
 
-    /* add buffer to fifo of pending requests */         
-    void addNewPendingRequest (int id) {
+    void out (uint32_t * idp, uint32_t * valuep)
+    {
+        /* decrement fullness, blocking if necessary, and lock access */
+        down(fifo->semid, NITEMS);
+        down(fifo->semid, ACCESS);
 
+        /* Retrieve pair */
+        *valuep = fifo->slot[fifo->ri].value;
+        fifo->slot[fifo->ri].value = 99999;
+        *idp = fifo->slot[fifo->ri].id;
+        fifo->slot[fifo->ri].id = 99;
+        fifo->ri = (fifo->ri + 1) % FIFOSZ;
+        fifo->cnt--;
+
+        /* unlock access and increment fullness */
+        up(fifo->semid, ACCESS);
+        up(fifo->semid, NSLOTS);
     }
 
-    /* wait (blocked) until a response is available */
-    void waitForResponse (int id) {
+    /* ************************************************* */
 
-    }
-
-    /* take response out of buffer */
-    struct* getResponseData (int id) {
-
-    }
-
-    /* buffer is free, so add it to fifo of free buffers */
-    void releaseBuffer (int id) {
-        
-    }
 }

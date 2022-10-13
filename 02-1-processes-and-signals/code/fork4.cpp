@@ -15,7 +15,7 @@ int main(void)
   pid_t ret = pfork();
   if (ret == 0) //if child
   {
-    execl("./child", "./child", NULL);
+    execl("./child", "1", NULL);
     printf("why doesn't this message show up?\n");
     return EXIT_FAILURE;
   }

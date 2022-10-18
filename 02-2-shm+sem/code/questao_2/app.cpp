@@ -50,11 +50,16 @@ namespace app
         uint32_t cnt;       ///< number of items stored
         uint32_t slot[FIFOSZ];  ///< storage memory
     };
+    
+    struct POOL{
+        RESPONSE response;
+        char request[MAX_STR_SIZE];
+        bool signal;
+    };
 
     struct SHMEM
     {
-        RESPONSE response;
-        char request[MAX_STR_SIZE];
+        POOL pool[FIFOSZ];
         FIFO fifo[2]; //fifo[0] : fifo free buffers | fifo[1] : fifo requests
     };
 
@@ -98,7 +103,6 @@ namespace app
 
 
         /* CREATE FIFO BUFFER FREE */
-
         /* init fifo with all numbers from 0 to size of fifo*/
         uint32_t i;
         for (i = 0; i < FIFOSZ; i++)
@@ -121,7 +125,6 @@ namespace app
 
 
         /* CREATE FIFO NEW REQUESTS */
-
         /* init fifo with all numbers 99*/
         for (i = 0; i < FIFOSZ; i++)
         {
@@ -140,6 +143,13 @@ namespace app
             up(mem->fifo[1].semid, NITEMS);
         }
         up(mem->fifo[1].semid, ACCESS); //access alowed
+
+        /*INITIALIZE POOL*/
+        for (i = 0; i < FIFOSZ; i++) {
+            //mem->pool[i].request = {'a','b','c'};
+            mem->pool[i].response = {};
+            mem->pool[i].signal = false; //response not avaible
+        }
 
     }
 
@@ -167,6 +177,7 @@ namespace app
         gaussianDelay(0.1, 0.5);
         fifo.ii = (fifo.ii + 1) % FIFOSZ;
         fifo.cnt++;
+        mem->pool[myBufferId].signal = false; //reset to response not avaiable
 
         /* unlock access and increment fullness */
         up(fifo.semid, ACCESS);
@@ -185,6 +196,7 @@ namespace app
         fifo.slot[fifo.ri] = 99;
         fifo.ri = (fifo.ri + 1) % FIFOSZ;
         fifo.cnt--;
+        //mem->pool[myBufferId].signal = false; //garantee it is not avaiable
 
         /* unlock access and increment fullness */
         up(fifo.semid, ACCESS);
@@ -224,6 +236,36 @@ namespace app
         /* unlock access and increment fullness */
         up(fifo.semid, ACCESS);
 
+    }
+    void getRequestPool(uint32_t myBufferId, char* value[]) {
+        uint32_t n = 0;
+        while(n < MAX_STR_SIZE){
+            *value = &mem->pool[myBufferId].request[n++];
+            value++;
+        }
+    }
+    void putRequestPool(uint32_t myBufferId,char value[]) {
+        uint32_t n = 0;
+        while(n < MAX_STR_SIZE){
+            mem->pool[myBufferId].request[n++] = *value++;
+            value++;
+        }
+    }
+    void getResponsePool(uint32_t myBufferId, RESPONSE* strStats) {
+        strStats->characters = mem->pool[myBufferId].response.characters;
+        strStats->letters = mem->pool[myBufferId].response.letters;
+        strStats->numbers = mem->pool[myBufferId].response.numbers;
+        /*
+        RESPONSE* res =  &mem->pool[myBufferId].response;
+        strStats = {.characters = res->characters, .letters = res->letters, .numbers = res->numbers };*/
+    }
+    void putResponsePool(uint32_t myBufferId, RESPONSE strStats) {
+        mem->pool[myBufferId].response.characters = strStats.characters;
+        mem->pool[myBufferId].response.letters = strStats.letters;
+        mem->pool[myBufferId].response.numbers = strStats.numbers;
+    }
+    void signalResponseIsAvailable(uint32_t myBufferId) {
+        mem->pool[myBufferId].signal = true; //response Avaible
     }
 
 }

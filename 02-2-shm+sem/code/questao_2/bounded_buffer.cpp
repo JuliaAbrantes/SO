@@ -51,18 +51,21 @@ int producer(uint32_t id, uint32_t niter)
         uint32_t myBufferId;
         app::fifoBuffersOut(&myBufferId);
 
-        char value[5] = {'j', 'u', 'l', 'i', '4'};
+        char value[app::MAX_STR_SIZE] = {'j', 'u', 'l', 'i', '4'};
         /* puts value in the buffer */
         app::putRequestPool(myBufferId, value);
         
         /* create request */
         app::fifoRequestsIn(myBufferId);
 
-        /* wait response */
+        /* -----------------
+        wait response*//*
+        signalResponseIsAvailable(myBufferId);
+        mem->pool[myBufferId].signal = true;*/
 
         /* get response */
-        app::Response* strStats = {};
-        app::getResponsePool(myBufferId, &strStats);
+        app::RESPONSE* strStats = {};
+        app::getResponsePool(myBufferId, strStats);
         printf("Response from:\n\t%d",myBufferId);
 
         /* free buffer */
@@ -82,23 +85,39 @@ int consumer(uint32_t id, uint32_t niter)
     uint32_t i;
     for (i = 0; i < niter; i++)
     {
-        /* do something else */
-        gaussianDelay(10, 5);
+        /* take a buffer out of fifo of pending requests */
+        uint32_t myBufferId;
+        app::fifoRequestsOut(&myBufferId);
 
-        /* retrieve an item from the fifo */
-        uint32_t pid, value;
-        app::out(&pid, &value);
+        /* take the request */
+        char* request[app::MAX_STR_SIZE];
+        getRequestData (id, resquest);
+        
+        /* produce a response */
+        RESPONSE response = {};
+        response.characters = 0;
+        response.letters = 0;
+        response.numbers = 0;
+        for(int i = 0; i<app::MAX_STR_SIZE; i++){
+            if(request[i] != '') {
+                response.characters++;
+                if(((int)request[i] >= 65 && (int)request[i] <= 90) || ((int)request[i] >= 97 && (int)request[i] <= 122)){
+                    response.letters++;
+                }
+                else if((int)request[i] >= 48 && (int)request[i] <= 57) {
+                    response.numbers++;
+                }
+            } else {
+                break;
+            }
+        }
+        
+        /* put response data on pool */
+        putResponsePool(myBufferId, response);
 
-        /* print them */
-        if (value == 99999 || pid == 99 || (value % 100) != pid)
-            printf("\e[31;01mThe value %05u was produced by process P%02u!\e[0m\n",
-                    value, pid);
-        else
-            printf("\e[32;01mThe value %05u was produced by process P%02u!\e[0m\n",
-                    value, pid);
+        /* so client is waked up */
+        signalResponseIsAvailable(myBufferId);
     }
-
-    //printf("Consumer %u is quiting\n", id);
     exit(EXIT_SUCCESS);
 }
 

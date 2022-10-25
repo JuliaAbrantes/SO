@@ -20,7 +20,7 @@
 #include  "pfifo.h"
 
 //#include "thread.h"
-//#include "process.h"
+#include "process.h"
 
 #include <iostream>
 
@@ -51,6 +51,7 @@ typedef struct
     PriorityFIFO doctor_queue;
 } HospitalData;
 
+int hdid = -1;
 HospitalData * hd = NULL;
 
 /**
@@ -68,8 +69,14 @@ void random_wait();
 void init_simulation(uint32_t np)
 {
    printf("Initializing simulation\n");
-   hd = (HospitalData*)mem_alloc(sizeof(HospitalData)); // mem_alloc is a malloc with NULL pointer verification
-   memset(hd, 0, sizeof(HospitalData));
+   //hd = (HospitalData*)mem_alloc(sizeof(HospitalData)); // mem_alloc is a malloc with NULL pointer verification
+   //memset(hd, 0, sizeof(HospitalData));
+   
+   /* create the shared memory */
+   hdid = pshmget(IPC_PRIVATE, sizeof(HospitalData), 0600 | IPC_CREAT | IPC_EXCL);
+   /*  attach shared memory to process addressing space */
+   hd = (HospitalData*)pshmat(hdid, NULL, 0);
+
    hd->num_patients = np;
    init_pfifo(&hd->triage_queue);
    init_pfifo(&hd->doctor_queue);

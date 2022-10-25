@@ -172,11 +172,14 @@ fprintf(stderr, "%s(id: %u, niter: %u, ...)\n", __FUNCTION__, id, niter);
 /*   main thread: it starts the simulation and launches the server and client threads */
 int main(int argc, char *argv[])
 {
+    /*
     uint32_t niter = 10; ///< number of iterations
     uint32_t nservers = 1;   ///< number of servers
     uint32_t nclients = 4;   ///< number of clients
+    */
 
     /* command line processing */
+    /*
     int option;
     while ((option = getopt(argc, argv, "n:s:c:h")) != -1)
     {
@@ -218,9 +221,14 @@ int main(int argc, char *argv[])
                 return EXIT_FAILURE;
         }
     }
+    */
 
     /* init support data structure */
     sos::open();
+
+    /*-----------my tests---------*/
+    sos::destroy();
+
 
     /* launching the servers */
 

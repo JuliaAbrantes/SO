@@ -23,7 +23,7 @@
  * TODO point
  * Uncomment the #include that applies
  */
-//#include "process.h"
+#include "process.h"
 //#include "thread.h"
 
 namespace sos
@@ -32,7 +32,7 @@ namespace sos
     #define  NBUFFERS         5
 
     /** \brief indexes for the fifos of free buffers and pending requests */
-    enum { FREE_BUFFER=0, PENDING_REQUEST };
+    enum { FREE_BUFFER=0, PENDING_REQUEST};
 
     /** \brief interaction buffer data type */
     struct BUFFER 
@@ -68,10 +68,14 @@ namespace sos
          * semaphores (for implementation using processes) or
          * mutexes, conditions and condition variables (for implementation using threads)
          */
+        int semAccess[2]; //semaphore to see if can access
+        int semEmpty[2]; //semaphore to see if empty
+        int ResponseAvaiable[NBUFFERS]; //semaphore array to see if response avaible
     };
 
     /** \brief pointer to shared area dynamically allocated */
     SharedArea *sharedArea = NULL;
+    int sharedAreaId = -1;
 
 
     /* -------------------------------------------------------------------- */
@@ -91,6 +95,10 @@ namespace sos
          * TODO point
          * Allocate the shared memory
          */
+        /* create the shared memory */
+        sharedAreaId = pshmget(IPC_PRIVATE, sizeof(SharedArea), 0600 | IPC_CREAT | IPC_EXCL);
+        /*  attach shared memory to process addressing space */
+        sharedArea = (SharedArea*)pshmat(sharedAreaId, NULL, 0);
 
         /* init fifo 0 (free buffers) */
         FIFO *fifo = &sharedArea->fifo[FREE_BUFFER];
@@ -114,6 +122,11 @@ namespace sos
          * TODO point
          * Init synchronization elements
          */
+        psem_up(sharedArea->semAccess[PENDING_REQUEST], PENDING_REQUEST); //both can be accessed
+        psem_up(sharedArea->semAccess[FREE_BUFFER], FREE_BUFFER);
+        psem_down(sharedArea->semEmpty[PENDING_REQUEST], PENDING_REQUEST); //pending request is empty
+        for(int i = 0; i<NBUFFERS; i++)
+                psem_up(sharedArea->semEmpty[FREE_BUFFER], FREE_BUFFER);      //free buffer has NBUFFERS elements
     }
 
     /* -------------------------------------------------------------------- */
@@ -127,11 +140,15 @@ namespace sos
          * TODO point
          * Destroy synchronization elements
          */
+        /* detach shared memory from process addressing space */
+        pshmdt(SharedArea);
 
         /* 
          * TODO point
         *  Destroy the shared memory
         */
+        /* destroy the shared memory */
+        pshmctl(sharedAreaId, IPC_RMID, NULL);
 
         /* nullify */
         sharedArea = NULL;
@@ -155,6 +172,22 @@ namespace sos
          * Replace with your code, 
          * avoiding race conditions and busy waiting
          */
+        /* decrement emptiness, blocking if necessary, and lock access */
+                //sharedArea->fifo[idx]         //get fifo
+                //sharedArea->semAccess[idx]    //Access semaphore
+                //sharedArea->semEmpty[idx]     //empty semaphore
+        psem_down(sharedArea->semAccess, idx);
+
+        /* Insert */
+        gaussianDelay(0.1, 0.5);
+        sharedArea->fifo[idx]->tokens[sharedArea->fifo[idx]->ii] = id;
+        sharedArea->fifo[idx]->ii = (sharedArea->fifo[idx]->ii + 1) % FIFOSZ;
+        sharedArea->fifo[idx]->cnt++;
+
+        /* unlock access and increment fullness */
+        psem_up(sharedArea->semAccess, idx);
+        psem_up(sharedArea->semEmpty, idx);
+
     }
 
     /* -------------------------------------------------------------------- */
@@ -174,6 +207,19 @@ namespace sos
          * Replace with your code, 
          * avoiding race conditions and busy waiting
          */
+        int id;
+        psem_down(sharedArea->semAccess, idx);
+
+        /* Retreive */
+        gaussianDelay(0.1, 0.5);
+        id = sharedArea->fifo[idx]->tokens[sharedArea->fifo[idx]->ri];
+        sharedArea->fifo[idx]->ri = (sharedArea->fifo[idx]->ri + 1) % FIFOSZ;
+        sharedArea->fifo[idx]->cnt++;
+
+        /* unlock access and increment fullness */
+        psem_up(sharedArea->semAccess, idx);
+        psem_down(sharedArea->semEmpty, idx);
+        return id;
     }
 
     /* -------------------------------------------------------------------- */
@@ -189,6 +235,7 @@ namespace sos
          * TODO point
          * Replace with your code, 
          */
+        return fifoOut(FREE_BUFFER);
     }
 
     /* -------------------------------------------------------------------- */
@@ -206,6 +253,7 @@ namespace sos
          * TODO point
          * Replace with your code, 
          */
+        sharedArea.pool[token].req = data;
     }
 
     /* -------------------------------------------------------------------- */
@@ -222,6 +270,8 @@ namespace sos
          * TODO point
          * Replace with your code, 
          */
+        
+        fifoIn(PENDING_REQUEST, token)
     }
 
     /* -------------------------------------------------------------------- */
@@ -239,6 +289,8 @@ namespace sos
          * Replace with your code, 
          * avoiding race conditions and busy waiting
          */
+        
+        psem_down(sharedArea->ResponseAvaiable, token);
     }
 
     /* -------------------------------------------------------------------- */
@@ -256,6 +308,7 @@ namespace sos
          * TODO point
          * Replace with your code, 
          */
+        resp = sharedArea->pool[token].resp;
     }
 
     /* -------------------------------------------------------------------- */
@@ -272,6 +325,7 @@ namespace sos
          * TODO point
          * Replace with your code, 
          */
+        fifoIn(FREE_BUFFER, token)
     }
 
     /* -------------------------------------------------------------------- */
@@ -287,6 +341,7 @@ namespace sos
          * TODO point
          * Replace with your code, 
          */
+        return fifoOut(PENDING_REQUEST);
     }
 
     /* -------------------------------------------------------------------- */
@@ -304,6 +359,7 @@ namespace sos
          * TODO point
          * Replace with your code, 
          */
+        return sharedArea->pool[token].req;
     }
 
     /* -------------------------------------------------------------------- */
@@ -321,6 +377,7 @@ namespace sos
          * TODO point
          * Replace with your code, 
          */
+        sharedArea->pool[token].resp = resp;
     }
 
     /* -------------------------------------------------------------------- */
@@ -338,6 +395,7 @@ namespace sos
          * Replace with your code, 
          * avoiding race conditions and busy waiting
          */
+        psem_up(sharedArea->ResponseAvaiable, token);
     }
 
     /* -------------------------------------------------------------------- */

@@ -111,6 +111,9 @@ namespace fifo
 
     void destroy()
     {
+        /* Destroy synchronization elements */
+        psemctl(fifo->semid, 0, IPC_RM);
+
         /* detach shared memory from process addressing space */
         pshmdt(fifo);
 

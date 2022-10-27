@@ -122,6 +122,8 @@ namespace sos
          * TODO point
          * Init synchronization elements
          */
+        //TODO create 
+        semAccesss = psemget(IPC_, 2, 0600 | )....
         psem_up(sharedArea->semAccess[PENDING_REQUEST], PENDING_REQUEST); //both can be accessed
         psem_up(sharedArea->semAccess[FREE_BUFFER], FREE_BUFFER);
         psem_down(sharedArea->semEmpty[PENDING_REQUEST], PENDING_REQUEST); //pending request is empty
@@ -140,13 +142,16 @@ namespace sos
          * TODO point
          * Destroy synchronization elements
          */
-        /* detach shared memory from process addressing space */
-        pshmdt(SharedArea);
+        psemctl(sharedArea->semAccess, 0, IPC_RMID);
+        psemctl(sharedArea->semEmpty, 0, IPC_RMID);
+        psemctl(sharedArea->ResponseAvaiable, 0, IPC_RMID);
 
         /* 
          * TODO point
         *  Destroy the shared memory
         */
+        /* detach shared memory from process addressing space */
+        pshmdt(sharedArea);
         /* destroy the shared memory */
         pshmctl(sharedAreaId, IPC_RMID, NULL);
 

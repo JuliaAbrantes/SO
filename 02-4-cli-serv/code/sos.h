@@ -39,7 +39,7 @@ namespace sos
      *
      * \remarks To be called after concurrency has terminated
      */
-    void close(void);
+    void destroy(void);
 
     /* -------------------------------------------------------------------- */
 

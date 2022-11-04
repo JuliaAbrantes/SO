@@ -25,7 +25,7 @@
  * Uncomment the #include that applies
  */
 //#include  "thread.h"
-//#include  "process.h"
+#include  "process.h"
 #include  "utils.h"
 #include  "dbc.h"
 
@@ -49,7 +49,7 @@ struct ARGV
 /* ******************************************************* */
 /* The server procedure to process a request */
 
-void processRequest(uint32_t id)
+int processRequest(uint32_t id)
 {
 #ifdef __DEBUG__
 fprintf(stderr, "%s(id: %u)\n", __FUNCTION__, id);
@@ -59,6 +59,12 @@ fprintf(stderr, "%s(id: %u)\n", __FUNCTION__, id);
     req[MAX_STRING_LEN] = '\0';
     uint32_t token = sos::getPendingRequest();
     sos::getRequestData(token, req);
+
+    /* determine end of processing*/
+    if(req == "") {
+        return -1;
+    }
+
     sos::Response resp;
     for (uint32_t i = 0; req[i] != '\0'; i++)
     {
@@ -68,6 +74,8 @@ fprintf(stderr, "%s(id: %u)\n", __FUNCTION__, id);
     }
     sos::putResponseData(token, &resp);
     sos::notifyClient(token);
+
+    return 1;
 }
 
 /* ******************************************************* */
@@ -88,10 +96,12 @@ fprintf(stderr, "%s(id: %u)\n", __FUNCTION__, id);
 #endif
 
     srand(getpid());
-    while (true)
+    int val;
+    do
     {
-        processRequest(id);
-    }
+        val = processRequest(id);
+    } while(val > 0);
+    /* check for the end of new requests*/
 }
 
 /* ******************************************************* */
@@ -172,14 +182,14 @@ fprintf(stderr, "%s(id: %u, niter: %u, ...)\n", __FUNCTION__, id, niter);
 /*   main thread: it starts the simulation and launches the server and client threads */
 int main(int argc, char *argv[])
 {
-    /*
+    
     uint32_t niter = 10; ///< number of iterations
     uint32_t nservers = 1;   ///< number of servers
     uint32_t nclients = 4;   ///< number of clients
-    */
+    
 
     /* command line processing */
-    /*
+    
     int option;
     while ((option = getopt(argc, argv, "n:s:c:h")) != -1)
     {
@@ -221,14 +231,10 @@ int main(int argc, char *argv[])
                 return EXIT_FAILURE;
         }
     }
-    */
+    
 
     /* init support data structure */
     sos::open();
-
-    /*-----------my tests---------*/
-    sos::destroy();
-
 
     /* launching the servers */
 
@@ -236,6 +242,19 @@ int main(int argc, char *argv[])
      * TODO point
      * Replace this comment with your code to launch the servers' processes/threads
      */
+    int serverPID[nservers];
+    for (uint32_t id = 0; id < nservers; id++)
+    {
+        if ((serverPID[id] = pfork()) == 0)
+        {
+            server(id);
+            exit(0);
+        }
+        else
+        {
+            printf("- Consumer process %d was launched\n", id);
+        }
+    }
 
     /* launching the clients */
 
@@ -244,12 +263,31 @@ int main(int argc, char *argv[])
      * Replace this comment with your code to launch the clients' processes/threads 
      */
 
+    int clientPID[nclients];
+    for (uint32_t id = 0; id < nclients; id++)
+    {
+        if ((clientPID[id] = pfork()) == 0)
+        {
+            client(id, niter);
+            exit(0);
+        }
+        else
+        {
+            printf("- Producer process %d was launched\n", id);
+        }
+    }
+
     /* waiting for client to conclude */
 
     /* 
      * TODO point
      * Replace this comment with your code to wait for clients termination
      */
+    for (uint32_t id = 0; id < nclients; id++)
+    {
+        pid_t pid = pwaitpid(clientPID[id], NULL, 0);
+        printf("Producer %d (process %d) has terminated\n", id, pid);
+    }
 
     /* waiting for servers to conclude */
 
@@ -260,6 +298,21 @@ int main(int argc, char *argv[])
      * So, they must be informed to finish their job.
      * This can be done sending to every one of them an empty request string.
      */
+
+    for (uint32_t id = 0; id < nservers; id++) {
+        sos::Response resp;
+        callService(id, "", &resp);
+    }
+
+    for (uint32_t id = 0; id < nservers; id++)
+    {
+        pid_t pid = pwaitpid(serverPID[id], NULL, 0);
+        printf("Consumer %d (process %d) has terminated\n", id, pid);
+    }
+
+
+    /* despry suport data structure*/
+    sos::destroy();
 
     /* quitting */
     return EXIT_SUCCESS;

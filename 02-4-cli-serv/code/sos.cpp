@@ -32,7 +32,7 @@ namespace sos
     #define  NBUFFERS         5
 
     /** \brief indexes for the fifos of free buffers and pending requests */
-    enum { FREE_BUFFER=0, PENDING_REQUEST};
+    enum { FREE_BUFFER=0, PENDING_REQUEST=1};
 
     /** \brief interaction buffer data type */
     struct BUFFER 
@@ -123,7 +123,10 @@ namespace sos
          * Init synchronization elements
          */
         //TODO create 
-        semAccesss = psemget(IPC_, 2, 0600 | )....
+        sharedArea->semAccess[0] = pshmget(IPC_PRIVATE, 1, 0600 | IPC_CREAT | IPC_EXCL);
+        sharedArea->semAccess[1] = pshmget(IPC_PRIVATE, 1, 0600 | IPC_CREAT | IPC_EXCL);
+        sharedArea->semEmpty[0] = pshmget(IPC_PRIVATE, 1, 0600 | IPC_CREAT | IPC_EXCL);
+        sharedArea->semEmpty[1] = pshmget(IPC_PRIVATE, 1, 0600 | IPC_CREAT | IPC_EXCL);
         psem_up(sharedArea->semAccess[PENDING_REQUEST], PENDING_REQUEST); //both can be accessed
         psem_up(sharedArea->semAccess[FREE_BUFFER], FREE_BUFFER);
         psem_down(sharedArea->semEmpty[PENDING_REQUEST], PENDING_REQUEST); //pending request is empty
@@ -142,9 +145,9 @@ namespace sos
          * TODO point
          * Destroy synchronization elements
          */
-        psemctl(sharedArea->semAccess, 0, IPC_RMID);
-        psemctl(sharedArea->semEmpty, 0, IPC_RMID);
-        psemctl(sharedArea->ResponseAvaiable, 0, IPC_RMID);
+        psemctl(*sharedArea->semAccess, 0, IPC_RMID);
+        psemctl(*sharedArea->semEmpty, 0, IPC_RMID);
+        psemctl(*sharedArea->ResponseAvaiable, 0, IPC_RMID);
 
         /* 
          * TODO point
@@ -181,17 +184,17 @@ namespace sos
                 //sharedArea->fifo[idx]         //get fifo
                 //sharedArea->semAccess[idx]    //Access semaphore
                 //sharedArea->semEmpty[idx]     //empty semaphore
-        psem_down(sharedArea->semAccess, idx);
+        psem_down(*sharedArea->semAccess, idx);
 
         /* Insert */
-        gaussianDelay(0.1, 0.5);
-        sharedArea->fifo[idx]->tokens[sharedArea->fifo[idx]->ii] = id;
-        sharedArea->fifo[idx]->ii = (sharedArea->fifo[idx]->ii + 1) % FIFOSZ;
-        sharedArea->fifo[idx]->cnt++;
+        //?gaussianDelay(0.1, 0.5);
+        sharedArea->fifo[idx].tokens[sharedArea->fifo[idx].ii] = idx;
+        sharedArea->fifo[idx].ii = (sharedArea->fifo[idx].ii + 1) % NBUFFERS;
+        sharedArea->fifo[idx].cnt++;
 
         /* unlock access and increment fullness */
-        psem_up(sharedArea->semAccess, idx);
-        psem_up(sharedArea->semEmpty, idx);
+        psem_up(*sharedArea->semAccess, idx);
+        psem_up(*sharedArea->semEmpty, idx);
 
     }
 
@@ -213,17 +216,17 @@ namespace sos
          * avoiding race conditions and busy waiting
          */
         int id;
-        psem_down(sharedArea->semAccess, idx);
+        psem_down(*sharedArea->semAccess, idx);
 
         /* Retreive */
-        gaussianDelay(0.1, 0.5);
-        id = sharedArea->fifo[idx]->tokens[sharedArea->fifo[idx]->ri];
-        sharedArea->fifo[idx]->ri = (sharedArea->fifo[idx]->ri + 1) % FIFOSZ;
-        sharedArea->fifo[idx]->cnt++;
+        //?gaussianDelay(0.1, 0.5);
+        id = sharedArea->fifo[idx].tokens[sharedArea->fifo[idx].ri];
+        sharedArea->fifo[idx].ri = (sharedArea->fifo[idx].ri + 1) % NBUFFERS;
+        sharedArea->fifo[idx].cnt++;
 
         /* unlock access and increment fullness */
-        psem_up(sharedArea->semAccess, idx);
-        psem_down(sharedArea->semEmpty, idx);
+        psem_up(*sharedArea->semAccess, idx);
+        psem_down(*sharedArea->semEmpty, idx);
         return id;
     }
 
@@ -258,7 +261,7 @@ namespace sos
          * TODO point
          * Replace with your code, 
          */
-        sharedArea.pool[token].req = data;
+        strcpy(sharedArea->pool[token].req, data);
     }
 
     /* -------------------------------------------------------------------- */
@@ -276,7 +279,7 @@ namespace sos
          * Replace with your code, 
          */
         
-        fifoIn(PENDING_REQUEST, token)
+        fifoIn(PENDING_REQUEST, token);
     }
 
     /* -------------------------------------------------------------------- */
@@ -295,7 +298,7 @@ namespace sos
          * avoiding race conditions and busy waiting
          */
         
-        psem_down(sharedArea->ResponseAvaiable, token);
+        psem_down(*sharedArea->ResponseAvaiable, token);
     }
 
     /* -------------------------------------------------------------------- */
@@ -313,7 +316,7 @@ namespace sos
          * TODO point
          * Replace with your code, 
          */
-        resp = sharedArea->pool[token].resp;
+        resp = &sharedArea->pool[token].resp;
     }
 
     /* -------------------------------------------------------------------- */
@@ -330,7 +333,7 @@ namespace sos
          * TODO point
          * Replace with your code, 
          */
-        fifoIn(FREE_BUFFER, token)
+        fifoIn(FREE_BUFFER, token);
     }
 
     /* -------------------------------------------------------------------- */
@@ -364,7 +367,7 @@ namespace sos
          * TODO point
          * Replace with your code, 
          */
-        return sharedArea->pool[token].req;
+        data = sharedArea->pool[token].req;
     }
 
     /* -------------------------------------------------------------------- */
@@ -382,7 +385,7 @@ namespace sos
          * TODO point
          * Replace with your code, 
          */
-        sharedArea->pool[token].resp = resp;
+        sharedArea->pool[token].resp = *resp;
     }
 
     /* -------------------------------------------------------------------- */
@@ -400,7 +403,7 @@ namespace sos
          * Replace with your code, 
          * avoiding race conditions and busy waiting
          */
-        psem_up(sharedArea->ResponseAvaiable, token);
+        psem_up(*sharedArea->ResponseAvaiable, token);
     }
 
     /* -------------------------------------------------------------------- */

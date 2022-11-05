@@ -12,7 +12,8 @@ void init_pfifo(PriorityFIFO* pfifo)
 {
    require (pfifo != NULL, "NULL pointer to FIFO");   // a false value indicates a program error
 
-   memset(pfifo->array, 0, sizeof(pfifo->array));
+   //memset(pfifo->array, 0, sizeof(pfifo->array));
+
    pfifo->inp = pfifo->out = pfifo->cnt = 0;
    //crate and init semaphores
    pfifo->semId = psemget(IPC_PRIVATE, 3, 0600 | IPC_CREAT | IPC_EXCL);

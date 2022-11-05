@@ -190,12 +190,50 @@ int main(int argc, char *argv[])
    init_simulation(npatients);
 
    /* dummy code to show a very simple sequential behavior */
-   for(uint32_t i = 0; i < npatients; i++)
+   /*for(uint32_t i = 0; i < npatients; i++)
    {
       printf("\n");
       random_wait(); // random wait for patience creation
       patient_life(i);
+   }*/
+
+
+   /* launching the patients */
+   int patientsPID[npatients];
+   for (uint32_t id = 0; id < npatients; id++)
+   {
+      if ((patientsPID[id] = pfork()) == 0)
+      {
+         patient_life(id);
+         exit(0);
+      }
    }
+   
+   /* launching the nurses */
+   int nursesPID[nnurses];
+   for (uint32_t id = 0; id < nnurses; id++)
+   {
+      if ((nursesPID[id] = pfork()) == 0)
+      {
+         nurse_iteration();
+         exit(0);
+      }
+   }
+
+   /* launching the doctors */
+   int doctorsPID[ndoctors];
+   for (uint32_t id = 0; id < ndoctors; id++)
+   {
+      if ((doctorsPID[id] = pfork()) == 0)
+      {
+         doctor_iteration();
+         exit(0);
+      }
+   }
+
+
+
+
 
    return EXIT_SUCCESS;
 }

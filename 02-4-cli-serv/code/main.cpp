@@ -311,7 +311,7 @@ int main(int argc, char *argv[])
     }
 
 
-    /* despry suport data structure*/
+    /* destroy suport data structure*/
     sos::destroy();
 
     /* quitting */

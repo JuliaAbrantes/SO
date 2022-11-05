@@ -61,7 +61,7 @@ fprintf(stderr, "%s(id: %u)\n", __FUNCTION__, id);
     sos::getRequestData(token, req);
 
     /* determine end of processing*/
-    if(req == "") {
+    if (strcmp(req, "") == 0){
         return -1;
     }
 

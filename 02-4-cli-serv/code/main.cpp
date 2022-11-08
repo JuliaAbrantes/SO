@@ -252,7 +252,7 @@ int main(int argc, char *argv[])
         }
         else
         {
-            printf("- Consumer process %d was launched\n", id);
+            printf("- SERVER %d was launched\n", id);
         }
     }
 
@@ -273,7 +273,7 @@ int main(int argc, char *argv[])
         }
         else
         {
-            printf("- Producer process %d was launched\n", id);
+            printf("- CLIENT %d was launched\n", id);
         }
     }
 
@@ -286,7 +286,7 @@ int main(int argc, char *argv[])
     for (uint32_t id = 0; id < nclients; id++)
     {
         pid_t pid = pwaitpid(clientPID[id], NULL, 0);
-        printf("Producer %d (process %d) has terminated\n", id, pid);
+        printf("CLIENT %d (%d) has terminated\n", id, pid);
     }
 
     /* waiting for servers to conclude */
@@ -307,7 +307,7 @@ int main(int argc, char *argv[])
     for (uint32_t id = 0; id < nservers; id++)
     {
         pid_t pid = pwaitpid(serverPID[id], NULL, 0);
-        printf("Consumer %d (process %d) has terminated\n", id, pid);
+        printf("SERVER %d (%d) has terminated\n", id, pid);
     }
 
 

@@ -18,7 +18,7 @@
 #include "sos.h"
 
 #include "dbc.h"
-#define __DEBUG__
+//#define __DEBUG__
 /*
  * TODO point
  * Uncomment the #include that applies

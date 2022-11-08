@@ -193,9 +193,6 @@ int main(int argc, char *argv[])
       }
    }
 
-   /* start random generator */
-   srand(getpid());
-
    /* init simulation */
    init_simulation(npatients);
 
@@ -214,6 +211,7 @@ int main(int argc, char *argv[])
    {
       if ((patientsPID[id] = pfork()) == 0)
       {
+         srand(getpid()); /* start random generator */
          random_wait();
          patient_life(id);
       }
@@ -226,6 +224,7 @@ int main(int argc, char *argv[])
       if ((nursesPID[id] = pfork()) == 0)
       {
          while(true) {
+            srand(getpid()); /* start random generator */
             random_wait();
             nurse_iteration();
          }
@@ -266,7 +265,8 @@ int main(int argc, char *argv[])
       pwaitpid(nursesPID[id], NULL, 0);
    }
 
-
+   //close_pfifo()
+   //
    return EXIT_SUCCESS;
 }
 

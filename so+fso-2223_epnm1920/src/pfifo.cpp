@@ -23,23 +23,29 @@ void init_pfifo(PriorityFIFO* pfifo)
    psem_up(pfifo->semId, ACCESS);//can be accessed
 }
 
+/*void close_pfifo(PriorityFIFO* pfifo)
+{
+   require (pfifo != NULL, "NULL pointer to FIFO");   // a false value indicates a program error
+   psemctl();
+}*/
+
 /* --------------------------------------- */
 
-int empty_pfifo(PriorityFIFO* pfifo)
+/*int empty_pfifo(PriorityFIFO* pfifo)
 {
    require (pfifo != NULL, "NULL pointer to FIFO");   // a false value indicates a program error
 
    return pfifo->cnt == 0;
-}
+}*/
 
 /* --------------------------------------- */
 
-int full_pfifo(PriorityFIFO* pfifo)
+/*int full_pfifo(PriorityFIFO* pfifo)
 {
    require (pfifo != NULL, "NULL pointer to FIFO");   // a false value indicates a program error
 
    return pfifo->cnt == FIFO_MAXSIZE;
-}
+}*/
 
 /* --------------------------------------- */
 

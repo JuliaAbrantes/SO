@@ -62,7 +62,7 @@ fprintf(stderr, "%s(id: %u)\n", __FUNCTION__, id);
 
     /* determine end of processing*/
     if (strcmp(req, "") == 0){
-        return -1;
+        exit(0);
     }
 
     sos::Response resp;
@@ -301,7 +301,9 @@ int main(int argc, char *argv[])
 
     for (uint32_t id = 0; id < nservers; id++) {
         sos::Response resp;
-        callService(id, "", &resp);
+        uint32_t token = sos::getFreeBuffer();
+        sos::putRequestData(token, "");
+        sos::submitRequest(token);
     }
 
     for (uint32_t id = 0; id < nservers; id++)

@@ -23,11 +23,12 @@ void init_pfifo(PriorityFIFO* pfifo)
    psem_up(pfifo->semId, ACCESS);//can be accessed
 }
 
-/*void close_pfifo(PriorityFIFO* pfifo)
+void fin_pfifo(PriorityFIFO* pfifo)
 {
    require (pfifo != NULL, "NULL pointer to FIFO");   // a false value indicates a program error
-   psemctl();
-}*/
+   /* destroy semaphores*/
+   psemctl(pfifo->semId, 3, IPC_RMID, NULL);
+}
 
 /* --------------------------------------- */
 

@@ -40,7 +40,7 @@
 typedef struct
 {
    char name[MAX_NAME+1];
-   int done; // 0: waiting for consultation; 1: consultation finished
+   int done; // semaphore id if done
 } Patient;
 
 typedef struct
@@ -85,6 +85,21 @@ void init_simulation(uint32_t np)
       hd->all_patients[i].done = psemget(IPC_PRIVATE, 1, 0600 | IPC_CREAT | IPC_EXCL);
    }
 
+}
+
+void end_simulation()
+{
+   /*finalie fifos*/
+   fin_pfifo(&hd->triage_queue);
+   fin_pfifo(&hd->doctor_queue);
+   /*destroy patient done semaphore*/
+   for(int i = 0; i<hd->num_patients; i++) {
+      psemctl(hd->all_patients[i].done, 0, IPC_RMID, NULL);
+   }
+   /*detach shared memory*/
+   pshmdt(hd);
+   /*destroy shared memory*/
+   pshmctl(hdid, IPC_RMID, NULL);
 }
 
 /* ************************************************* */
@@ -141,7 +156,7 @@ void patient_life(int id)
    //nurse_iteration();  // to be deleted in concurrent version
    //doctor_iteration(); // to be deleted in concurrent version
    patient_wait_end_of_consultation(id);
-   memset(&(hd->all_patients[id]), 0, sizeof(Patient)); // patient finished
+   //memset(&(hd->all_patients[id]), 0, sizeof(Patient)); // patient finished
    exit(0);
 }
 
@@ -203,19 +218,6 @@ int main(int argc, char *argv[])
       random_wait(); // random wait for patience creation
       patient_life(i);
    }*/
-
-
-   /* launching the patients */
-   int patientsPID[npatients];
-   for (uint32_t id = 0; id < npatients; id++)
-   {
-      if ((patientsPID[id] = pfork()) == 0)
-      {
-         srand(getpid()); /* start random generator */
-         random_wait();
-         patient_life(id);
-      }
-   }
    
    /* launching the doctors */
    int doctorsPID[ndoctors];
@@ -244,6 +246,18 @@ int main(int argc, char *argv[])
       }
    }
 
+   /* launching the patients */
+   int patientsPID[npatients];
+   for (uint32_t id = 0; id < npatients; id++)
+   {
+      if ((patientsPID[id] = pfork()) == 0)
+      {
+         srand(getpid()); /* start random generator */
+         random_wait();
+         patient_life(id);
+      }
+   }
+
    for (uint32_t id = 0; id < npatients; id++)
    { //wait patients
       pwaitpid(patientsPID[id], NULL, 0);
@@ -265,8 +279,8 @@ int main(int argc, char *argv[])
       pwaitpid(nursesPID[id], NULL, 0);
    }
 
-   //close_pfifo()
-   //
+   end_simulation();
+
    return EXIT_SUCCESS;
 }
 

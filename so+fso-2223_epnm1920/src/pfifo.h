@@ -35,6 +35,7 @@ typedef struct
 } PriorityFIFO;
 
 void init_pfifo(PriorityFIFO* pfifo);
+void fin_pfifo(PriorityFIFO* pfifo);
 int empty_pfifo(PriorityFIFO* pfifo);
 int full_pfifo(PriorityFIFO* pfifo);
 void insert_pfifo(PriorityFIFO* pfifo, uint32_t id, uint32_t priority);

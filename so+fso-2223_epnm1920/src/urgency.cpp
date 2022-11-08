@@ -80,6 +80,11 @@ void init_simulation(uint32_t np)
    hd->num_patients = np;
    init_pfifo(&hd->triage_queue);
    init_pfifo(&hd->doctor_queue);
+
+   for (int i = 0; i<hd->num_patients; i++) {
+      hd->all_patients[i].done = psemget(IPC_PRIVATE, 1, 0600 | IPC_CREAT | IPC_EXCL);
+   }
+
 }
 
 /* ************************************************* */
@@ -88,6 +93,7 @@ void nurse_iteration()
 {
    printf("\e[34;01mNurse: get next patient\e[0m\n");
    uint32_t patient = retrieve_pfifo(&hd->triage_queue);
+   //fprintf(stderr, "%d\n", patient);
    check_valid_patient(patient);
    printf("\e[34;01mNurse: evaluate patient %u priority\e[0m\n", patient);
    uint32_t priority = random_manchester_triage_priority();
@@ -105,7 +111,8 @@ void doctor_iteration()
    printf("\e[32;01mDoctor: treat patient %u\e[0m\n", patient);
    random_wait();
    printf("\e[32;01mDoctor: patient %u treated\e[0m\n", patient);
-   hd->all_patients[patient].done = 1;
+   //hd->all_patients[patient].done = 1;
+   psem_up(hd->all_patients[patient].done, 0);
 }
 
 /* ************************************************* */
@@ -116,12 +123,14 @@ void patient_goto_urgency(int id)
    check_valid_name(hd->all_patients[id].name);
    printf("\e[30;01mPatient %s (number %u): get to hospital\e[0m\n", hd->all_patients[id].name, id);
    insert_pfifo(&hd->triage_queue, id, 1); // all elements in triage queue with the same priority!
+   //fprintf(stderr, "%d\n", id);
 }
 
 /* changes may be required to this function */
 void patient_wait_end_of_consultation(int id)
 {
    check_valid_name(hd->all_patients[id].name);
+   psem_down(hd->all_patients[id].done, 0);
    printf("\e[30;01mPatient %s (number %u): health problems treated\e[0m\n", hd->all_patients[id].name, id);
 }
 
@@ -129,10 +138,11 @@ void patient_wait_end_of_consultation(int id)
 void patient_life(int id)
 {
    patient_goto_urgency(id);
-   nurse_iteration();  // to be deleted in concurrent version
-   doctor_iteration(); // to be deleted in concurrent version
+   //nurse_iteration();  // to be deleted in concurrent version
+   //doctor_iteration(); // to be deleted in concurrent version
    patient_wait_end_of_consultation(id);
    memset(&(hd->all_patients[id]), 0, sizeof(Patient)); // patient finished
+   exit(0);
 }
 
 /* ************************************************* */
@@ -204,8 +214,8 @@ int main(int argc, char *argv[])
    {
       if ((patientsPID[id] = pfork()) == 0)
       {
+         random_wait();
          patient_life(id);
-         exit(0);
       }
    }
    
@@ -215,8 +225,10 @@ int main(int argc, char *argv[])
    {
       if ((nursesPID[id] = pfork()) == 0)
       {
-         nurse_iteration();
-         exit(0);
+         while(true) {
+            random_wait();
+            nurse_iteration();
+         }
       }
    }
 
@@ -226,13 +238,33 @@ int main(int argc, char *argv[])
    {
       if ((doctorsPID[id] = pfork()) == 0)
       {
-         doctor_iteration();
-         exit(0);
+         while(true) {
+            random_wait();
+            doctor_iteration();
+         }
       }
    }
 
-
-
+   for (uint32_t id = 0; id < npatients; id++)
+   { //wait patients
+      pwaitpid(patientsPID[id], NULL, 0);
+   }
+   for (uint32_t id = 0; id < ndoctors; id++)
+   { //fake patients to doctor
+      insert_pfifo(&hd->doctor_queue, 666, 1);
+   }
+   for (uint32_t id = 0; id < nnurses; id++)
+   { //fake patients to nurse
+      insert_pfifo(&hd->triage_queue, 666, 1);
+   }
+   for (uint32_t id = 0; id < ndoctors; id++)
+   { //wait doctors
+      pwaitpid(doctorsPID[id], NULL, 0);
+   }
+   for (uint32_t id = 0; id < nnurses; id++)
+   { //wait nurses
+      pwaitpid(nursesPID[id], NULL, 0);
+   }
 
 
    return EXIT_SUCCESS;
@@ -275,7 +307,8 @@ char* random_name()
 void new_patient(Patient* patient)
 {
    strcpy(patient->name, random_name());
-   patient->done = 0;
+   //patient->done = 0;
+   //psem_down(patient->done, 0);
 }
 
 void random_wait()

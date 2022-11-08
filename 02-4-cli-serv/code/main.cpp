@@ -19,7 +19,7 @@
 #include <ctype.h>
 
 #include  "sos.h"
-
+#define __DEBUG__
 /*
  * TODO point
  * Uncomment the #include that applies

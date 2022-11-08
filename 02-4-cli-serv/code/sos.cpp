@@ -18,7 +18,7 @@
 #include "sos.h"
 
 #include "dbc.h"
-
+#define __DEBUG__
 /*
  * TODO point
  * Uncomment the #include that applies
@@ -68,9 +68,9 @@ namespace sos
          * semaphores (for implementation using processes) or
          * mutexes, conditions and condition variables (for implementation using threads)
          */
-        int semAccess[2]; //semaphore to see if can access
-        int semEmpty[2]; //semaphore to see if empty
-        int ResponseAvaiable[NBUFFERS]; //semaphore array to see if response avaible
+        int semAccessId; //semaphore to see if can access
+        int semEmptyId; //semaphore to see if empty
+        int ResponseAvaiable; //semaphore array to see if response avaible
     };
 
     /** \brief pointer to shared area dynamically allocated */
@@ -85,7 +85,7 @@ namespace sos
      */
     void open(void)
     {
-#if __DEBUG__
+#ifdef __DEBUG__
         fprintf(stderr, "%s()\n", __FUNCTION__);
 #endif
 
@@ -99,39 +99,40 @@ namespace sos
         sharedAreaId = pshmget(IPC_PRIVATE, sizeof(SharedArea), 0600 | IPC_CREAT | IPC_EXCL);
         /*  attach shared memory to process addressing space */
         sharedArea = (SharedArea*)pshmat(sharedAreaId, NULL, 0);
-
         /* init fifo 0 (free buffers) */
-        FIFO *fifo = &sharedArea->fifo[FREE_BUFFER];
+        //FIFO *fifo = &sharedArea->fifo[FREE_BUFFER];
         for (uint32_t i = 0; i < NBUFFERS; i++)
         {
-            fifo->tokens[i] = i;
+            sharedArea->fifo[FREE_BUFFER].tokens[i] = i;
         }
-        fifo->ii = fifo->ri = 0;
-        fifo->cnt = NBUFFERS;
+        sharedArea->fifo[FREE_BUFFER].ii = sharedArea->fifo[FREE_BUFFER].ri = NBUFFERS-1;
+        sharedArea->fifo[FREE_BUFFER].cnt = NBUFFERS;
 
         /* init fifo 1 (pending requests) */
-        fifo = &sharedArea->fifo[PENDING_REQUEST];
+        //fifo = &sharedArea->fifo[PENDING_REQUEST];
         for (uint32_t i = 0; i < NBUFFERS; i++)
         {
-            fifo->tokens[i] = NBUFFERS; // used to check for errors
+            sharedArea->fifo[PENDING_REQUEST].tokens[i] = 0; // used to check for errors
         }
-        fifo->ii = fifo->ri = 0;
-        fifo->cnt = 0;
+        sharedArea->fifo[PENDING_REQUEST].ii = sharedArea->fifo[PENDING_REQUEST].ri = 0;
+        sharedArea->fifo[PENDING_REQUEST].cnt = 0;
 
         /* 
          * TODO point
          * Init synchronization elements
          */
         //TODO create 
-        sharedArea->semAccess[0] = pshmget(IPC_PRIVATE, 1, 0600 | IPC_CREAT | IPC_EXCL);
-        sharedArea->semAccess[1] = pshmget(IPC_PRIVATE, 1, 0600 | IPC_CREAT | IPC_EXCL);
-        sharedArea->semEmpty[0] = pshmget(IPC_PRIVATE, 1, 0600 | IPC_CREAT | IPC_EXCL);
-        sharedArea->semEmpty[1] = pshmget(IPC_PRIVATE, 1, 0600 | IPC_CREAT | IPC_EXCL);
-        psem_up(sharedArea->semAccess[PENDING_REQUEST], PENDING_REQUEST); //both can be accessed
-        psem_up(sharedArea->semAccess[FREE_BUFFER], FREE_BUFFER);
-        psem_down(sharedArea->semEmpty[PENDING_REQUEST], PENDING_REQUEST); //pending request is empty
-        for(int i = 0; i<NBUFFERS; i++)
-                psem_up(sharedArea->semEmpty[FREE_BUFFER], FREE_BUFFER);      //free buffer has NBUFFERS elements
+        sharedArea->semAccessId = psemget(IPC_PRIVATE, 2, 0600 | IPC_CREAT | IPC_EXCL);
+        sharedArea->semEmptyId = psemget(IPC_PRIVATE, 2, 0600 | IPC_CREAT | IPC_EXCL);
+        sharedArea->ResponseAvaiable = psemget(IPC_PRIVATE, NBUFFERS, 0600 | IPC_CREAT | IPC_EXCL);
+
+        for(int i = 0; i<NBUFFERS; i++) {
+                psem_up(sharedArea->semEmptyId, FREE_BUFFER);      //free buffer has NBUFFERS elements
+        }
+
+        psem_up(sharedArea->semAccessId, FREE_BUFFER);
+        psem_up(sharedArea->semAccessId, PENDING_REQUEST); //both can be accessed
+
     }
 
     /* -------------------------------------------------------------------- */
@@ -145,9 +146,9 @@ namespace sos
          * TODO point
          * Destroy synchronization elements
          */
-        psemctl(*sharedArea->semAccess, 0, IPC_RMID);
-        psemctl(*sharedArea->semEmpty, 0, IPC_RMID);
-        psemctl(*sharedArea->ResponseAvaiable, 0, IPC_RMID);
+        psemctl(sharedArea->semAccessId, 0, IPC_RMID);
+        psemctl(sharedArea->semEmptyId, 0, IPC_RMID);
+        psemctl(sharedArea->ResponseAvaiable, 0, IPC_RMID);
 
         /* 
          * TODO point
@@ -168,7 +169,7 @@ namespace sos
     /* Insertion a token into a fifo */
     static void fifoIn(uint32_t idx, uint32_t token)
     {
-#if __DEBUG__
+#ifdef __DEBUG__
         fprintf(stderr, "%s(idx: %u, token: %u)\n", __FUNCTION__, idx, token);
 #endif
 
@@ -182,9 +183,9 @@ namespace sos
          */
         /* decrement emptiness, blocking if necessary, and lock access */
                 //sharedArea->fifo[idx]         //get fifo
-                //sharedArea->semAccess[idx]    //Access semaphore
+                //sharedArea->semAccessId[idx]    //Access semaphore
                 //sharedArea->semEmpty[idx]     //empty semaphore
-        psem_down(*sharedArea->semAccess, idx);
+        psem_down(sharedArea->semAccessId, idx);
 
         /* Insert */
         //?gaussianDelay(0.1, 0.5);
@@ -193,8 +194,8 @@ namespace sos
         sharedArea->fifo[idx].cnt++;
 
         /* unlock access and increment fullness */
-        psem_up(*sharedArea->semAccess, idx);
-        psem_up(*sharedArea->semEmpty, idx);
+        psem_up(sharedArea->semAccessId, idx);
+        psem_up(sharedArea->semEmptyId, idx);
 
     }
 
@@ -204,7 +205,7 @@ namespace sos
 
     static uint32_t fifoOut(uint32_t idx)
     {
-#if __DEBUG__
+#ifdef __DEBUG__
         fprintf(stderr, "%s(idx: %u)\n", __FUNCTION__, idx);
 #endif
 
@@ -216,7 +217,7 @@ namespace sos
          * avoiding race conditions and busy waiting
          */
         int id;
-        psem_down(*sharedArea->semAccess, idx);
+        psem_down(sharedArea->semAccessId, idx);
 
         /* Retreive */
         //?gaussianDelay(0.1, 0.5);
@@ -225,8 +226,8 @@ namespace sos
         sharedArea->fifo[idx].cnt++;
 
         /* unlock access and increment fullness */
-        psem_up(*sharedArea->semAccess, idx);
-        psem_down(*sharedArea->semEmpty, idx);
+        psem_up(sharedArea->semAccessId, idx);
+        psem_down(sharedArea->semEmptyId, idx);
         return id;
     }
 
@@ -235,7 +236,7 @@ namespace sos
 
     uint32_t getFreeBuffer()
     {
-#if __DEBUG__
+#ifdef __DEBUG__
         fprintf(stderr, "%s()\n", __FUNCTION__);
 #endif
 
@@ -250,7 +251,7 @@ namespace sos
 
     void putRequestData(uint32_t token, const char *data)
     {
-#if __DEBUG__
+#ifdef __DEBUG__
         fprintf(stderr, "%s(token: %u, ...)\n", __FUNCTION__, token);
 #endif
 
@@ -268,7 +269,7 @@ namespace sos
 
     void submitRequest(uint32_t token)
     {
-#if __DEBUG__
+#ifdef __DEBUG__
         fprintf(stderr, "%s(token: %u)\n", __FUNCTION__, token);
 #endif
 
@@ -286,7 +287,7 @@ namespace sos
 
     void waitForResponse(uint32_t token)
     {
-#if __DEBUG__
+#ifdef __DEBUG__
         fprintf(stderr, "%s(token: %u)\n", __FUNCTION__, token);
 #endif
 
@@ -298,14 +299,14 @@ namespace sos
          * avoiding race conditions and busy waiting
          */
         
-        psem_down(*sharedArea->ResponseAvaiable, token);
+        psem_down(sharedArea->ResponseAvaiable, token);
     }
 
     /* -------------------------------------------------------------------- */
 
     void getResponseData(uint32_t token, Response *resp)
     {
-#if __DEBUG__
+#ifdef __DEBUG__
         fprintf(stderr, "%s(token: %u, ...)\n", __FUNCTION__, token);
 #endif
 
@@ -323,7 +324,7 @@ namespace sos
 
     void releaseBuffer(uint32_t token)
     {
-#if __DEBUG__
+#ifdef __DEBUG__
         fprintf(stderr, "%s(token: %u)\n", __FUNCTION__, token);
 #endif
 
@@ -341,7 +342,7 @@ namespace sos
 
     uint32_t getPendingRequest()
     {
-#if __DEBUG__
+#ifdef __DEBUG__
         fprintf(stderr, "%s()\n", __FUNCTION__);
 #endif
 
@@ -356,7 +357,7 @@ namespace sos
 
     void getRequestData(uint32_t token, char *data)
     {
-#if __DEBUG__
+#ifdef __DEBUG__
         fprintf(stderr, "%s(token: %u, ...)\n", __FUNCTION__, token);
 #endif
 
@@ -374,7 +375,7 @@ namespace sos
 
     void putResponseData(uint32_t token, Response *resp)
     {
-#if __DEBUG__
+#ifdef __DEBUG__
         fprintf(stderr, "%s(token: %u, ...)\n", __FUNCTION__, token);
 #endif
 
@@ -392,7 +393,7 @@ namespace sos
 
     void notifyClient(uint32_t token)
     {
-#if __DEBUG__
+#ifdef __DEBUG__
         fprintf(stderr, "%s(token: %u)\n", __FUNCTION__, token);
 #endif
 
@@ -403,7 +404,7 @@ namespace sos
          * Replace with your code, 
          * avoiding race conditions and busy waiting
          */
-        psem_up(*sharedArea->ResponseAvaiable, token);
+        psem_up(sharedArea->ResponseAvaiable, token);
     }
 
     /* -------------------------------------------------------------------- */

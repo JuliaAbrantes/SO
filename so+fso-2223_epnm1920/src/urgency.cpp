@@ -217,6 +217,19 @@ int main(int argc, char *argv[])
       }
    }
    
+   /* launching the doctors */
+   int doctorsPID[ndoctors];
+   for (uint32_t id = 0; id < ndoctors; id++)
+   {
+      if ((doctorsPID[id] = pfork()) == 0)
+      {
+         while(true) {
+            random_wait();
+            doctor_iteration();
+         }
+      }
+   } 
+   
    /* launching the nurses */
    int nursesPID[nnurses];
    for (uint32_t id = 0; id < nnurses; id++)
@@ -227,19 +240,6 @@ int main(int argc, char *argv[])
             srand(getpid()); /* start random generator */
             random_wait();
             nurse_iteration();
-         }
-      }
-   }
-
-   /* launching the doctors */
-   int doctorsPID[ndoctors];
-   for (uint32_t id = 0; id < ndoctors; id++)
-   {
-      if ((doctorsPID[id] = pfork()) == 0)
-      {
-         while(true) {
-            random_wait();
-            doctor_iteration();
          }
       }
    }

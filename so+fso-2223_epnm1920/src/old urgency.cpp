@@ -20,7 +20,7 @@
 #include  "pfifo.h"
 
 //#include "thread.h"
-#include "process.h"
+//#include "process.h"
 
 #include <iostream>
 
@@ -40,7 +40,7 @@
 typedef struct
 {
    char name[MAX_NAME+1];
-   int done; // semaphore id if done
+   int done; // 0: waiting for consultation; 1: consultation finished
 } Patient;
 
 typedef struct
@@ -51,7 +51,6 @@ typedef struct
     PriorityFIFO doctor_queue;
 } HospitalData;
 
-int hdid = -1;
 HospitalData * hd = NULL;
 
 /**
@@ -69,37 +68,11 @@ void random_wait();
 void init_simulation(uint32_t np)
 {
    printf("Initializing simulation\n");
-   //hd = (HospitalData*)mem_alloc(sizeof(HospitalData)); // mem_alloc is a malloc with NULL pointer verification
-   //memset(hd, 0, sizeof(HospitalData));
-   
-   /* create the shared memory */
-   hdid = pshmget(IPC_PRIVATE, sizeof(HospitalData), 0600 | IPC_CREAT | IPC_EXCL);
-   /*  attach shared memory to process addressing space */
-   hd = (HospitalData*)pshmat(hdid, NULL, 0);
-
+   hd = (HospitalData*)mem_alloc(sizeof(HospitalData)); // mem_alloc is a malloc with NULL pointer verification
+   memset(hd, 0, sizeof(HospitalData));
    hd->num_patients = np;
    init_pfifo(&hd->triage_queue);
    init_pfifo(&hd->doctor_queue);
-
-   for (int i = 0; i<hd->num_patients; i++) {
-      hd->all_patients[i].done = psemget(IPC_PRIVATE, 1, 0600 | IPC_CREAT | IPC_EXCL);
-   }
-
-}
-
-void end_simulation()
-{
-   /*finalie fifos*/
-   fin_pfifo(&hd->triage_queue);
-   fin_pfifo(&hd->doctor_queue);
-   /*destroy patient done semaphore*/
-   for(int i = 0; i<hd->num_patients; i++) {
-      psemctl(hd->all_patients[i].done, 0, IPC_RMID, NULL);
-   }
-   /*detach shared memory*/
-   pshmdt(hd);
-   /*destroy shared memory*/
-   pshmctl(hdid, IPC_RMID, NULL);
 }
 
 /* ************************************************* */
@@ -125,7 +98,7 @@ void doctor_iteration()
    printf("\e[32;01mDoctor: treat patient %u\e[0m\n", patient);
    random_wait();
    printf("\e[32;01mDoctor: patient %u treated\e[0m\n", patient);
-   psem_up(hd->all_patients[patient].done, 0);
+   hd->all_patients[patient].done = 1;
 }
 
 /* ************************************************* */
@@ -142,7 +115,6 @@ void patient_goto_urgency(int id)
 void patient_wait_end_of_consultation(int id)
 {
    check_valid_name(hd->all_patients[id].name);
-   psem_down(hd->all_patients[id].done, 0);
    printf("\e[30;01mPatient %s (number %u): health problems treated\e[0m\n", hd->all_patients[id].name, id);
 }
 
@@ -150,8 +122,10 @@ void patient_wait_end_of_consultation(int id)
 void patient_life(int id)
 {
    patient_goto_urgency(id);
+   nurse_iteration();  // to be deleted in concurrent version
+   doctor_iteration(); // to be deleted in concurrent version
    patient_wait_end_of_consultation(id);
-   exit(0);
+   memset(&(hd->all_patients[id]), 0, sizeof(Patient)); // patient finished
 }
 
 /* ************************************************* */
@@ -202,70 +176,19 @@ int main(int argc, char *argv[])
       }
    }
 
+   /* start random generator */
+   srand(getpid());
+
    /* init simulation */
    init_simulation(npatients);
-   
-   /* launching the doctors */
-   int doctorsPID[ndoctors];
-   for (uint32_t id = 0; id < ndoctors; id++)
-   {
-      if ((doctorsPID[id] = pfork()) == 0)
-      {
-         while(true) {
-            random_wait();
-            doctor_iteration();
-         }
-      }
-   } 
-   
-   /* launching the nurses */
-   int nursesPID[nnurses];
-   for (uint32_t id = 0; id < nnurses; id++)
-   {
-      if ((nursesPID[id] = pfork()) == 0)
-      {
-         while(true) {
-            srand(getpid()); /* start random generator */
-            random_wait();
-            nurse_iteration();
-         }
-      }
-   }
 
-   /* launching the patients */
-   int patientsPID[npatients];
-   for (uint32_t id = 0; id < npatients; id++)
+   /* dummy code to show a very simple sequential behavior */
+   for(uint32_t i = 0; i < npatients; i++)
    {
-      if ((patientsPID[id] = pfork()) == 0)
-      {
-         srand(getpid()); /* start random generator */
-         random_wait();
-         patient_life(id);
-      }
+      printf("\n");
+      random_wait(); // random wait for patience creation
+      patient_life(i);
    }
-
-   for (uint32_t id = 0; id < npatients; id++)
-   { //wait patients
-      pwaitpid(patientsPID[id], NULL, 0);
-   }
-   for (uint32_t id = 0; id < ndoctors; id++)
-   { //fake patients to doctor
-      insert_pfifo(&hd->doctor_queue, 666, 1);
-   }
-   for (uint32_t id = 0; id < nnurses; id++)
-   { //fake patients to nurse
-      insert_pfifo(&hd->triage_queue, 666, 1);
-   }
-   for (uint32_t id = 0; id < ndoctors; id++)
-   { //wait doctors
-      pwaitpid(doctorsPID[id], NULL, 0);
-   }
-   for (uint32_t id = 0; id < nnurses; id++)
-   { //wait nurses
-      pwaitpid(nursesPID[id], NULL, 0);
-   }
-
-   end_simulation();
 
    return EXIT_SUCCESS;
 }
@@ -307,12 +230,10 @@ char* random_name()
 void new_patient(Patient* patient)
 {
    strcpy(patient->name, random_name());
-   //patient->done = 0;
-   //psem_down(patient->done, 0);
+   patient->done = 0;
 }
 
 void random_wait()
 {
    usleep((useconds_t)(MAX_WAIT*(double)rand()/(double)RAND_MAX));
 }
-

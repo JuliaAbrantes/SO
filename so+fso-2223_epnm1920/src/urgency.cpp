@@ -307,8 +307,6 @@ char* random_name()
 void new_patient(Patient* patient)
 {
    strcpy(patient->name, random_name());
-   //patient->done = 0;
-   //psem_down(patient->done, 0);
 }
 
 void random_wait()
